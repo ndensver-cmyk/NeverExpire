@@ -69,6 +69,8 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
     var loading by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var results by remember { mutableStateOf<List<ProductInfo>?>(null) }
+    var webResults by remember { mutableStateOf<List<com.neverexpire.app.net.WebSearchResult>?>(null) }
+    val uriHandler = LocalUriHandler.current
     var showPicker by remember { mutableStateOf(false) }
     var catOpen by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
@@ -129,7 +131,7 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
             if (best != null && matchScore(q, best.name) >= 0.65) {
                 p = p.withInfo(best)
                 message = "Información del producto cargada automáticamente"
-            } else if (r.isEmpty()) message = "Sin resultados para \"$q\"" else results = r
+            } else if (r.isEmpty()) { webResults = vm.searchWeb(q); message = "Buscando también en Internet…" } else results = r
         }
     }
 
@@ -321,4 +323,25 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
             }
         }
     }
+    webResults?.let { list ->
+        ModalBottomSheet(onDismissRequest = { webResults = null }) {
+            Text("Resultados de Internet", modifier = Modifier.padding(20.dp))
+            LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
+                items(list) { item ->
+                    Column(Modifier.fillMaxWidth().clickable {
+                        p = p.copy(name = item.title.take(120), description = item.description.take(1200))
+                        webResults = null
+                        message = "Datos sugeridos desde Internet; verifica antes de guardar."
+                    }.padding(20.dp)) {
+                        Text(item.title, style = MaterialTheme.typography.titleSmall)
+                        Text(item.description, style = MaterialTheme.typography.bodySmall, maxLines = 3)
+                        Text("Abrir fuente", color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable { uriHandler.openUri(item.url) })
+                    }
+                    HorizontalDivider()
+                }
+            }
+        }
+    }
+
 }
