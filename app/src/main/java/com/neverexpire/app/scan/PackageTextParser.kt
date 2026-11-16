@@ -26,7 +26,7 @@ object PackageTextParser {
     private val numeric = Regex("""(?<!\d)(\d{1,2})\s?[/\-.]\s?(\d{1,2})\s?[/\-.]\s?(\d{2,4})(?!\d)""")
     private val isoDate = Regex("""(?<!\d)(20\d{2})[/\-.](\d{1,2})[/\-.](\d{1,2})(?!\d)""")
     private val textual = Regex("""(?<!\d)(\d{1,2})?\s?[/\-. ]?\s?(ENE|JAN|FEB|MAR|ABR|APR|MAY|JUN|JUL|AGO|AUG|SEP|SET|OCT|NOV|DIC|DEC)[A-Z]*\.?\s?[/\-. ]?\s?(\d{2,4})(?!\d)""")
-    private val monthYear = Regex("""(?<![\d/.\-])(\d{1,2})\s?[/\-.]\s?(20\d{2})(?!\d)""")
+    private val monthYear = Regex("""(?<![\d/.\-])(\d{1,2})\s?[/\-.]\s?(\d{2}|20\d{2})(?!\d)""")
     private val barcode = Regex("""(?<!\d)(\d{13}|\d{12}|\d{8})(?!\d)""")
 
     data class DateCandidate(val date: LocalDate, val score: Int)
@@ -35,20 +35,28 @@ object PackageTextParser {
         val upper = text.uppercase()
         val found = mutableMapOf<LocalDate, Int>()
 
-        fun add(date: LocalDate?, start: Int) {
+        fun add(date: LocalDate?, start: Int, end: Int = start) {
             if (date == null) return
             if (date.isBefore(today.minusYears(2)) || date.isAfter(today.plusYears(10))) return
             var score = 1
-            val ctx = upper.substring((start - 30).coerceAtLeast(0), start)
-            if (KEYWORDS.any { it in ctx }) score += 10
-            if (PRODUCTION.any { it in ctx.takeLast(12) }) score -= 6
+            // Las impresiones suelen colocar VENCE/EXP antes de la fecha, aunque OCR
+            // también puede devolver la etiqueta después o en la línea siguiente.
+            val before = upper.substring((start - 45).coerceAtLeast(0), start)
+            val after = upper.substring(end, (end + 24).coerceAtMost(upper.length))
+            if (KEYWORDS.any { it in before || it in after }) score += 12
+            if (PRODUCTION.any { it in before.takeLast(18) }) score -= 8
             if (!date.isBefore(today)) score += 2
             found[date] = maxOf(found[date] ?: Int.MIN_VALUE, score)
         }
 
         numeric.findAll(upper).forEach { m ->
-            val (d, mo, y) = m.destructured
-            add(safeDate(year(y), mo.toInt(), d.toInt()) ?: safeDate(year(y), d.toInt(), mo.toInt()), m.range.first)
+            val (first, second, y) = m.destructured
+            // NeverExpire está orientada al mercado hispanohablante: primero DD/MM/AAAA.
+            // Solo se usa MM/DD como alternativa si la lectura día/mes no es válida.
+            val parsedYear = year(y)
+            val dayFirst = safeDate(parsedYear, second.toInt(), first.toInt())
+            val monthFirst = safeDate(parsedYear, first.toInt(), second.toInt())
+            add(dayFirst ?: monthFirst, m.range.first, m.range.last + 1)
         }
         isoDate.findAll(upper).forEach { m ->
             val (y, mo, d) = m.destructured
@@ -64,8 +72,9 @@ object PackageTextParser {
         }
         monthYear.findAll(upper).forEach { m ->
             val (mo, y) = m.destructured
-            val date = runCatching { YearMonth.of(y.toInt(), mo.toInt()).atEndOfMonth() }.getOrNull()
-            add(date, m.range.first)
+            val yy = year(y)
+            val date = runCatching { YearMonth.of(yy, mo.toInt()).atEndOfMonth() }.getOrNull()
+            add(date, m.range.first, m.range.last + 1)
         }
 
         return found.map { DateCandidate(it.key, it.value) }
