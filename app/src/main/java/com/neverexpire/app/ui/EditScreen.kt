@@ -64,13 +64,21 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
             )
         )
     }
-    var expiryConfirmed by remember { mutableStateOf(!fromScan) }
+    var expiryConfirmed by remember { mutableStateOf(!fromScan || draft?.expiryAutoConfirmed == true) }
     var loading by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var results by remember { mutableStateOf<List<ProductInfo>?>(null) }
     var showPicker by remember { mutableStateOf(false) }
     var catOpen by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
+    var showMore by remember { mutableStateOf(false) }
+
+    fun matchScore(query: String, candidate: String): Double {
+        val q = query.lowercase().split(Regex("[^a-z0-9áéíóúñ]+")).filter { it.length > 2 }.toSet()
+        val c = candidate.lowercase().split(Regex("[^a-z0-9áéíóúñ]+")).filter { it.length > 2 }.toSet()
+        if (q.isEmpty() || c.isEmpty()) return 0.0
+        return q.intersect(c).size.toDouble() / q.size.toDouble()
+    }
 
     fun lookupCode(code: String) {
         if (code.isBlank()) return
@@ -78,10 +86,34 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
             loading = true; message = null
             val info = vm.lookupBarcode(code)
             loading = false
-            if (info != null) { p = p.withInfo(info); message = "Producto encontrado: ${info.name}" }
-            else {
-                message = "No encontramos el código $code. Busca por nombre."
-                if (p.name.isBlank()) p = p.copy(name = draft?.nameHint.orEmpty())
+            if (info != null && info.name.isNotBlank()) {
+                p = p.withInfo(info)
+                message = "Producto identificado automáticamente"
+                if (info.imageUrl.isBlank() || info.category == "Otros" || info.description.isBlank()) {
+                    val query = listOf(info.name, info.brand).filter { it.isNotBlank() }.joinToString(" ")
+                    if (query.isNotBlank()) {
+                        val alternatives = vm.searchByName(query)
+                        val better = alternatives.maxByOrNull { matchScore(query, it.name) }
+                        if (better != null && matchScore(query, better.name) >= 0.6) p = p.withInfo(better)
+                    }
+                }
+            } else {
+                val hint = draft?.nameHint.orEmpty()
+                if (hint.isNotBlank()) {
+                    val alternatives = vm.searchByName(hint)
+                    val best = alternatives.maxByOrNull { matchScore(hint, it.name) }
+                    if (best != null && matchScore(hint, best.name) >= 0.55) {
+                        p = p.withInfo(best)
+                        message = "Encontramos el producto por el texto del empaque"
+                    } else {
+                        p = p.copy(name = hint)
+                        results = alternatives
+                        searchText = hint
+                        message = if (alternatives.isEmpty()) "No encontramos una ficha automática. Puedes completar solo lo que falte." else "Elige el resultado que coincida con tu producto."
+                    }
+                } else {
+                    message = "No encontramos este código. Puedes buscar el producto por su nombre."
+                }
             }
         }
     }
@@ -100,7 +132,10 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
         if (draft != null) {
             vm.scanDraft.value = null
             if (!draft.barcode.isNullOrBlank()) lookupCode(draft.barcode)
-            else if (!draft.nameHint.isNullOrBlank()) p = p.copy(name = draft.nameHint)
+            else if (!draft.nameHint.isNullOrBlank()) {
+                p = p.copy(name = draft.nameHint)
+                searchName(draft.nameHint)
+            }
         }
     }
 
@@ -220,10 +255,15 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
                     }
                 }
             )
-            OutlinedTextField(p.description, { p = p.copy(description = it) }, Modifier.fillMaxWidth(),
-                label = { Text("Descripción") }, minLines = 2)
-            OutlinedTextField(p.ingredients, { p = p.copy(ingredients = it) }, Modifier.fillMaxWidth(),
-                label = { Text("Ingredientes") }, minLines = 2)
+            TextButton(onClick = { showMore = !showMore }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (showMore) "Ocultar información adicional" else "Más información (opcional)")
+            }
+            if (showMore) {
+                OutlinedTextField(p.description, { p = p.copy(description = it) }, Modifier.fillMaxWidth(),
+                    label = { Text("Descripción") }, minLines = 2)
+                OutlinedTextField(p.ingredients, { p = p.copy(ingredients = it) }, Modifier.fillMaxWidth(),
+                    label = { Text("Ingredientes") }, minLines = 2)
+            }
             Spacer(Modifier.height(8.dp))
         }
     }
