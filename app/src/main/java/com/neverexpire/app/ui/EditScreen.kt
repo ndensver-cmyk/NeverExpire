@@ -64,6 +64,7 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
             )
         )
     }
+    var expiryConfirmed by remember { mutableStateOf(!fromScan) }
     var loading by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var results by remember { mutableStateOf<List<ProductInfo>?>(null) }
@@ -114,7 +115,7 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
             Surface(tonalElevation = 3.dp) {
                 Button(
                     onClick = { onSaved(vm.save(p.copy(name = p.name.trim())).id) },
-                    enabled = p.name.isNotBlank(),
+                    enabled = p.name.isNotBlank() && expiryConfirmed,
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp).height(52.dp)
                 ) { Text("Guardar en mi despensa") }
             }
@@ -183,19 +184,27 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
                     Icon(Icons.Default.CalendarMonth, null); Spacer(Modifier.width(8.dp))
                     Text("${p.expiryDate.format(dateFmt)} · ${daysText(p.daysLeft()).lowercase()}")
                 }
+                if (!expiryConfirmed) {
+                    Text(
+                        if (draft?.dateOptions.isNullOrEmpty()) "No se detectó una fecha fiable. Selecciónala manualmente."
+                        else "NeverExpire leyó posibles fechas. Confirma cuál corresponde al vencimiento.",
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 if (!draft?.dateOptions.isNullOrEmpty()) {
-                    Text("Fechas leídas del empaque", style = MaterialTheme.typography.labelMedium)
+                    Text("Fechas leídas del empaque · toca para confirmar", style = MaterialTheme.typography.labelMedium)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         draft!!.dateOptions.forEach { d ->
                             FilterChip(selected = p.expiryEpochDay == d.toEpochDay(),
-                                onClick = { p = p.copy(expiryEpochDay = d.toEpochDay()) },
+                                onClick = { p = p.copy(expiryEpochDay = d.toEpochDay()); expiryConfirmed = true },
                                 label = { Text(d.format(dateFmt)) })
                         }
                     }
                 }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf(3L to "+3 días", 7L to "+1 semana", 30L to "+1 mes", 180L to "+6 meses").forEach { (d, l) ->
-                        AssistChip(onClick = { p = p.copy(expiryEpochDay = LocalDate.now().plusDays(d).toEpochDay()) },
+                        AssistChip(onClick = { p = p.copy(expiryEpochDay = LocalDate.now().plusDays(d).toEpochDay()); expiryConfirmed = true },
                             label = { Text(l, style = MaterialTheme.typography.labelSmall) })
                     }
                 }
@@ -229,6 +238,7 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
                 TextButton(onClick = {
                     state.selectedDateMillis?.let {
                         p = p.copy(expiryEpochDay = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toEpochDay())
+                        expiryConfirmed = true
                     }
                     showPicker = false
                 }) { Text("Aceptar") }
