@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -340,8 +341,7 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
                     }.padding(20.dp)) {
                         Text(item.title, style = MaterialTheme.typography.titleSmall)
                         Text(item.description, style = MaterialTheme.typography.bodySmall, maxLines = 3)
-                        Text("Abrir búsqueda", color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.clickable { uriHandler.openUri(item.url) })
+                        Text("Toca para abrir la búsqueda", color = MaterialTheme.colorScheme.primary)
                     }
                     HorizontalDivider()
                 }
