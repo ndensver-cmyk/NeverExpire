@@ -52,6 +52,7 @@ import java.util.concurrent.Executors
 private class ScanAccumulator {
     var barcode by mutableStateOf<String?>(null)
     var dateScores = mutableStateMapOf<LocalDate, Int>()
+    var dateBestScores = mutableStateMapOf<LocalDate, Int>()
     var ingredients by mutableStateOf("")
     var longestText by mutableStateOf("")
     var nameHint by mutableStateOf<String?>(null)
@@ -63,6 +64,7 @@ private class ScanAccumulator {
         if (r.text.isNotBlank()) {
             PackageTextParser.findDates(r.text).forEach { c ->
                 dateScores[c.date] = (dateScores[c.date] ?: 0) + c.score
+                dateBestScores[c.date] = maxOf(dateBestScores[c.date] ?: Int.MIN_VALUE, c.score)
             }
             val ing = PackageTextParser.findIngredients(r.text)
             if (ing.length > ingredients.length) ingredients = ing
@@ -74,13 +76,15 @@ private class ScanAccumulator {
 
     fun bestDates(): List<LocalDate> = dateScores.entries.sortedByDescending { it.value }.map { it.key }.take(4)
 
+    fun hasConfidentExpiry(): Boolean = (bestDates().firstOrNull()?.let { dateBestScores[it] } ?: 0) >= 13
+
     fun reset() {
-        barcode = null; dateScores.clear(); ingredients = ""; longestText = ""; nameHint = null; wordsRead = 0
+        barcode = null; dateScores.clear(); dateBestScores.clear(); ingredients = ""; longestText = ""; nameHint = null; wordsRead = 0
     }
 
     fun toDraft() = ScanDraft(
         barcode = barcode, expiry = bestDates().firstOrNull(), dateOptions = bestDates(),
-        nameHint = nameHint, ingredients = ingredients, packageText = longestText.take(2000)
+        expiryAutoConfirmed = hasConfidentExpiry(), nameHint = nameHint, ingredients = ingredients, packageText = longestText.take(2000)
     )
 }
 
