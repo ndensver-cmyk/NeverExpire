@@ -12,8 +12,8 @@ android {
         applicationId = "com.neverexpire.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "2.0"
+        versionCode = 3
+        versionName = "3.1"
         // Solo procesadores de teléfonos reales (reduce tamaño)
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
@@ -50,8 +50,13 @@ android {
         jvmTarget = "17"
     }
     buildFeatures {
+        buildConfig = true
         compose = true
     }
+}
+
+android.defaultConfig {
+    buildConfigField("String", "BRAVE_SEARCH_API_KEY", "\"${System.getenv("BRAVE_SEARCH_API_KEY") ?: ""}\"")
 }
 
 dependencies {
