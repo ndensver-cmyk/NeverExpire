@@ -58,7 +58,7 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
         mutableStateOf(
             productId?.let { vm.find(it) } ?: Product(
                 id = 0, name = "", category = "Otros", quantity = 1,
-                expiryEpochDay = (draft?.expiry ?: LocalDate.now().plusDays(7)).toEpochDay(),
+                expiryEpochDay = (draft?.expiry ?: if (fromScan) LocalDate.now() else LocalDate.now().plusDays(7)).toEpochDay(),
                 barcode = draft?.barcode.orEmpty(),
                 ingredients = draft?.ingredients.orEmpty(),
                 packageText = draft?.packageText.orEmpty()
@@ -138,8 +138,9 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
             vm.scanDraft.value = null
             if (!draft.barcode.isNullOrBlank()) lookupCode(draft.barcode)
             else if (!draft.nameHint.isNullOrBlank()) {
+                // OCR solo propone texto: nunca selecciona automáticamente otro producto por similitud.
                 p = p.copy(name = draft.nameHint, category = guessCategory(emptyList(), draft.nameHint))
-                searchName(draft.nameHint)
+                message = "Texto sugerido por la cámara. Comprueba el nombre y busca el producto si hace falta."
             }
         }
     }
