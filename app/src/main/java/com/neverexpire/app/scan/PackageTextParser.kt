@@ -26,7 +26,7 @@ object PackageTextParser {
     private val numeric = Regex("""(?<!\d)(\d{1,2})\s?[/\-.]\s?(\d{1,2})\s?[/\-.]\s?(\d{2,4})(?!\d)""")
     private val isoDate = Regex("""(?<!\d)(20\d{2})[/\-.](\d{1,2})[/\-.](\d{1,2})(?!\d)""")
     private val textual = Regex("""(?<!\d)(\d{1,2})?\s?[/\-. ]?\s?(ENE|JAN|FEB|MAR|ABR|APR|MAY|JUN|JUL|AGO|AUG|SEP|SET|OCT|NOV|DIC|DEC)[A-Z]*\.?\s?[/\-. ]?\s?(\d{2,4})(?!\d)""")
-    private val monthYear = Regex("""(?<![\d/.\-])(\d{1,2})\s?[/\-.]\s?(20\d{2})(?!\d)""")
+    private val monthYear = Regex("""(?<![\d/.\-])(\d{1,2})\s?[/\-.]\s?(\d{2}|20\d{2})(?!\d)""")
     private val barcode = Regex("""(?<!\d)(\d{13}|\d{12}|\d{8})(?!\d)""")
 
     data class DateCandidate(val date: LocalDate, val score: Int)
