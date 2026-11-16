@@ -31,6 +31,20 @@ class PackageTextParserTest {
         assertEquals("leche entera, azúcar, cultivos lácticos", PackageTextParser.findIngredients(t))
     }
 
+
+    @Test fun formatoColombianoDiaMes() {
+        assertEquals(LocalDate.of(2027, 12, 5), PackageTextParser.bestExpiry("VENCE: 05/12/2027", today))
+    }
+
+    @Test fun mesYAnioConDosDigitos() {
+        assertEquals(LocalDate.of(2027, 12, 31), PackageTextParser.bestExpiry("EXP 12/27", today))
+    }
+
+    @Test fun priorizaVencimientoSobreFabricacion() {
+        val text = "F.P. 01/10/2026\\nLOTE 123\\nVENCE: 15/01/2027"
+        assertEquals(LocalDate.of(2027, 1, 15), PackageTextParser.bestExpiry(text, today))
+    }
+
     @Test fun codigoBarras() {
         assertTrue(PackageTextParser.isValidEan("3017620422003"))
         assertEquals("7702177017975", PackageTextParser.findBarcode("Cod 7702177017975 Reg"))
