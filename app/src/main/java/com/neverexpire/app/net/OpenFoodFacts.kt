@@ -31,7 +31,7 @@ object OpenFoodFacts {
     private const val BASE = "https://world.openfoodfacts.org"
     private const val UA = "NeverExpire/2.0 (Android; github.com/ndensver-cmyk/NeverExpire)"
     private const val FIELDS = "code,product_name,product_name_es,generic_name,generic_name_es,brands,quantity," +
-        "image_front_url,image_url,categories_tags,categories,ingredients_text,ingredients_text_es," +
+        "image_front_url,image_front_small_url,image_small_url,image_url,categories_tags,categories,ingredients_text,ingredients_text_es," +
         "allergens_tags,nutriscore_grade,nova_group,nutriments,labels,origins,countries"
 
     suspend fun byBarcode(code: String): ProductInfo? = withContext(Dispatchers.IO) {
@@ -70,16 +70,19 @@ object OpenFoodFacts {
     }
 
     private fun parse(p: JSONObject, fallbackCode: String?): ProductInfo {
-        val name = p.s("product_name_es", "product_name")
         val brand = p.s("brands").split(",").firstOrNull()?.trim().orEmpty()
-        val tags = p.optJSONArray("categories_tags")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList()
+        val generic = p.s("generic_name_es", "generic_name")
+        val name = p.s("product_name_es", "product_name").ifBlank { generic }.ifBlank { brand }
+        val tags = (p.optJSONArray("categories_tags")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList()) +
+            p.s("categories").split(",").map { it.trim() }.filter { it.isNotBlank() }
         val allergens = p.optJSONArray("allergens_tags")?.let { a ->
             (0 until a.length()).map { translateAllergen(a.getString(it)) }
         }?.joinToString(", ").orEmpty()
         val nutriScore = p.s("nutriscore_grade").uppercase().takeIf { it.length == 1 }.orEmpty()
         val nova = p.optInt("nova_group", 0)
         val nutrients = parseNutrients(p.optJSONObject("nutriments"))
-        val generic = p.s("generic_name_es", "generic_name")
+        val ingredients = p.s("ingredients_text_es", "ingredients_text")
+        val labels = p.s("labels")
         val size = p.s("quantity")
 
         val description = buildString {
@@ -101,13 +104,13 @@ object OpenFoodFacts {
             barcode = p.s("code").ifBlank { fallbackCode.orEmpty() },
             name = name,
             brand = brand,
-            imageUrl = p.s("image_front_url", "image_url"),
+            imageUrl = p.s("image_front_url", "image_front_small_url", "image_small_url", "image_url"),
             size = size,
-            category = guessCategory(tags, name),
+            category = guessCategory(tags, "$name $brand $generic $ingredients $labels"),
             description = description,
-            ingredients = p.s("ingredients_text_es", "ingredients_text"),
+            ingredients = ingredients,
             allergens = allergens,
-            labels = p.s("labels"),
+            labels = labels,
             nutriScore = nutriScore,
             novaGroup = nova,
             nutrients = nutrients
