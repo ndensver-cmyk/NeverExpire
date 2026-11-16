@@ -69,6 +69,8 @@ private class ScanAccumulator {
             val ing = PackageTextParser.findIngredients(r.text)
             if (ing.length > ingredients.length) ingredients = ing
             if (r.text.length > longestText.length) longestText = r.text
+            val recognizedName = extractProductName(r.text)
+            if (recognizedName != null) nameHint = recognizedName
             wordsRead = maxOf(wordsRead, r.text.split(Regex("\\s+")).size)
         }
         if (nameHint == null) nameHint = usableNameHint(r.biggestLine)
@@ -77,6 +79,21 @@ private class ScanAccumulator {
     fun bestDates(): List<LocalDate> = dateScores.entries.sortedByDescending { it.value }.map { it.key }.take(4)
 
     fun hasConfidentExpiry(): Boolean = false
+
+    private fun extractProductName(text: String): String? {
+        val normalized = text.lowercase()
+            .replace("á", "a").replace("é", "e").replace("í", "i")
+            .replace("ó", "o").replace("ú", "u")
+        val productTerms = listOf(
+            "panela granulada" to "Panela granulada",
+            "panela pulverizada" to "Panela pulverizada",
+            "panela en polvo" to "Panela en polvo",
+            "panela" to "Panela"
+        )
+        val product = productTerms.firstOrNull { it.first in normalized }?.second ?: return null
+        val brand = if ("victoria" in normalized) "Victoria" else null
+        return listOfNotNull(product, brand).joinToString(" - ")
+    }
 
     private fun usableNameHint(line: String?): String? {
         val value = line?.trim()?.replace(Regex("\\s+"), " ") ?: return null
