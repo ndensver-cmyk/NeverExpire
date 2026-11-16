@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.neverexpire.app.data.CATEGORIES
 import com.neverexpire.app.data.Product
+import com.neverexpire.app.data.guessCategory
 import com.neverexpire.app.net.ProductInfo
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -37,7 +38,7 @@ private fun Product.withInfo(i: ProductInfo) = copy(
     brand = i.brand.ifBlank { brand },
     imageUrl = i.imageUrl.ifBlank { imageUrl },
     size = i.size.ifBlank { size },
-    category = if (i.category != "Otros") i.category else category,
+    category = if (i.category != "Otros") i.category else guessCategory(emptyList(), "${i.name} ${i.brand} ${i.ingredients}"),
     description = i.description.ifBlank { description },
     ingredients = i.ingredients.ifBlank { ingredients },
     allergens = i.allergens.ifBlank { allergens },
@@ -56,21 +57,29 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
     var p by remember {
         mutableStateOf(
             productId?.let { vm.find(it) } ?: Product(
-                id = 0, name = "", category = CATEGORIES.first(), quantity = 1,
-                expiryEpochDay = (draft?.expiry ?: LocalDate.now().plusDays(7)).toEpochDay(),
+                id = 0, name = "", category = "Otros", quantity = 1,
+                expiryEpochDay = (draft?.expiry ?: if (fromScan) LocalDate.now() else LocalDate.now().plusDays(7)).toEpochDay(),
                 barcode = draft?.barcode.orEmpty(),
                 ingredients = draft?.ingredients.orEmpty(),
                 packageText = draft?.packageText.orEmpty()
             )
         )
     }
-    var expiryConfirmed by remember { mutableStateOf(!fromScan) }
+    var expiryConfirmed by remember { mutableStateOf(!fromScan || draft?.expiryAutoConfirmed == true) }
     var loading by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var results by remember { mutableStateOf<List<ProductInfo>?>(null) }
     var showPicker by remember { mutableStateOf(false) }
     var catOpen by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
+    var showMore by remember { mutableStateOf(false) }
+
+    fun matchScore(query: String, candidate: String): Double {
+        val q = query.lowercase().split(Regex("[^a-z0-9áéíóúñ]+")).filter { it.length > 2 }.toSet()
+        val c = candidate.lowercase().split(Regex("[^a-z0-9áéíóúñ]+")).filter { it.length > 2 }.toSet()
+        if (q.isEmpty() || c.isEmpty()) return 0.0
+        return q.intersect(c).size.toDouble() / q.size.toDouble()
+    }
 
     fun lookupCode(code: String) {
         if (code.isBlank()) return
@@ -78,10 +87,34 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
             loading = true; message = null
             val info = vm.lookupBarcode(code)
             loading = false
-            if (info != null) { p = p.withInfo(info); message = "Producto encontrado: ${info.name}" }
-            else {
-                message = "No encontramos el código $code. Busca por nombre."
-                if (p.name.isBlank()) p = p.copy(name = draft?.nameHint.orEmpty())
+            if (info != null && info.name.isNotBlank()) {
+                p = p.withInfo(info)
+                message = "Producto identificado automáticamente"
+                if (info.imageUrl.isBlank() || info.category == "Otros" || info.description.isBlank()) {
+                    val query = listOf(info.name, info.brand).filter { it.isNotBlank() }.joinToString(" ")
+                    if (query.isNotBlank()) {
+                        val alternatives = vm.searchByName(query)
+                        val better = alternatives.maxByOrNull { matchScore(query, it.name) }
+                        if (better != null && matchScore(query, better.name) >= 0.6) p = p.withInfo(better)
+                    }
+                }
+            } else {
+                val hint = draft?.nameHint.orEmpty()
+                if (hint.isNotBlank()) {
+                    val alternatives = vm.searchByName(hint)
+                    val best = alternatives.maxByOrNull { matchScore(hint, it.name) }
+                    if (best != null && matchScore(hint, best.name) >= 0.55) {
+                        p = p.withInfo(best)
+                        message = "Encontramos el producto por el texto del empaque"
+                    } else {
+                        p = p.copy(name = hint, category = guessCategory(emptyList(), hint))
+                        results = alternatives
+                        searchText = hint
+                        message = if (alternatives.isEmpty()) "No encontramos una ficha automática. Puedes completar solo lo que falte." else "Elige el resultado que coincida con tu producto."
+                    }
+                } else {
+                    message = "No encontramos este código. Puedes buscar el producto por su nombre."
+                }
             }
         }
     }
@@ -92,7 +125,11 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
             loading = true; message = null
             val r = vm.searchByName(q)
             loading = false
-            if (r.isEmpty()) message = "Sin resultados para \"$q\"" else results = r
+            val best = r.maxByOrNull { matchScore(q, it.name) }
+            if (best != null && matchScore(q, best.name) >= 0.65) {
+                p = p.withInfo(best)
+                message = "Información del producto cargada automáticamente"
+            } else if (r.isEmpty()) message = "Sin resultados para \"$q\"" else results = r
         }
     }
 
@@ -100,7 +137,11 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
         if (draft != null) {
             vm.scanDraft.value = null
             if (!draft.barcode.isNullOrBlank()) lookupCode(draft.barcode)
-            else if (!draft.nameHint.isNullOrBlank()) p = p.copy(name = draft.nameHint)
+            else if (!draft.nameHint.isNullOrBlank()) {
+                // OCR solo propone texto: nunca selecciona automáticamente otro producto por similitud.
+                p = p.copy(name = draft.nameHint, category = guessCategory(emptyList(), draft.nameHint))
+                message = "Texto sugerido por la cámara. Comprueba el nombre y busca el producto si hace falta."
+            }
         }
     }
 
@@ -220,10 +261,15 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
                     }
                 }
             )
-            OutlinedTextField(p.description, { p = p.copy(description = it) }, Modifier.fillMaxWidth(),
-                label = { Text("Descripción") }, minLines = 2)
-            OutlinedTextField(p.ingredients, { p = p.copy(ingredients = it) }, Modifier.fillMaxWidth(),
-                label = { Text("Ingredientes") }, minLines = 2)
+            TextButton(onClick = { showMore = !showMore }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (showMore) "Ocultar información adicional" else "Más información (opcional)")
+            }
+            if (showMore) {
+                OutlinedTextField(p.description, { p = p.copy(description = it) }, Modifier.fillMaxWidth(),
+                    label = { Text("Descripción") }, minLines = 2)
+                OutlinedTextField(p.ingredients, { p = p.copy(ingredients = it) }, Modifier.fillMaxWidth(),
+                    label = { Text("Ingredientes") }, minLines = 2)
+            }
             Spacer(Modifier.height(8.dp))
         }
     }
