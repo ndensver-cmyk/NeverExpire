@@ -52,6 +52,7 @@ import java.util.concurrent.Executors
 private class ScanAccumulator {
     var barcode by mutableStateOf<String?>(null)
     var dateScores = mutableStateMapOf<LocalDate, Int>()
+    var dateBestScores = mutableStateMapOf<LocalDate, Int>()
     var ingredients by mutableStateOf("")
     var longestText by mutableStateOf("")
     var nameHint by mutableStateOf<String?>(null)
@@ -63,24 +64,55 @@ private class ScanAccumulator {
         if (r.text.isNotBlank()) {
             PackageTextParser.findDates(r.text).forEach { c ->
                 dateScores[c.date] = (dateScores[c.date] ?: 0) + c.score
+                dateBestScores[c.date] = maxOf(dateBestScores[c.date] ?: Int.MIN_VALUE, c.score)
             }
             val ing = PackageTextParser.findIngredients(r.text)
             if (ing.length > ingredients.length) ingredients = ing
             if (r.text.length > longestText.length) longestText = r.text
+            val recognizedName = extractProductName(r.text)
+            if (recognizedName != null) nameHint = recognizedName
             wordsRead = maxOf(wordsRead, r.text.split(Regex("\\s+")).size)
         }
-        if (nameHint == null && r.biggestLine != null && r.biggestLine.length in 3..40) nameHint = r.biggestLine
+        if (nameHint == null) nameHint = usableNameHint(r.biggestLine)
     }
 
     fun bestDates(): List<LocalDate> = dateScores.entries.sortedByDescending { it.value }.map { it.key }.take(4)
 
+    fun hasConfidentExpiry(): Boolean = false
+
+    private fun extractProductName(text: String): String? {
+        val normalized = text.lowercase()
+            .replace("á", "a").replace("é", "e").replace("í", "i")
+            .replace("ó", "o").replace("ú", "u")
+        val productTerms = listOf(
+            "panela granulada" to "Panela granulada",
+            "panela pulverizada" to "Panela pulverizada",
+            "panela en polvo" to "Panela en polvo",
+            "panela" to "Panela"
+        )
+        val product = productTerms.firstOrNull { it.first in normalized }?.second ?: return null
+        val brand = if ("victoria" in normalized) "Victoria" else null
+        return listOfNotNull(product, brand).joinToString(" - ")
+    }
+
+    private fun usableNameHint(line: String?): String? {
+        val value = line?.trim()?.replace(Regex("\\s+"), " ") ?: return null
+        if (value.length !in 4..32) return null
+        if (Regex("\\d{2,}").containsMatchIn(value)) return null
+        val letters = value.count { it.isLetter() }
+        if (letters < 4 || letters.toDouble() / value.length < 0.75) return null
+        val ignored = listOf("LOTE", "VENCE", "VENCIMIENTO", "INGREDIENTES", "REGISTRO", "CONTENIDO NETO", "FECHA")
+        if (ignored.any { value.uppercase().contains(it) }) return null
+        return value
+    }
+
     fun reset() {
-        barcode = null; dateScores.clear(); ingredients = ""; longestText = ""; nameHint = null; wordsRead = 0
+        barcode = null; dateScores.clear(); dateBestScores.clear(); ingredients = ""; longestText = ""; nameHint = null; wordsRead = 0
     }
 
     fun toDraft() = ScanDraft(
         barcode = barcode, expiry = bestDates().firstOrNull(), dateOptions = bestDates(),
-        nameHint = nameHint, ingredients = ingredients, packageText = longestText.take(2000)
+        expiryAutoConfirmed = hasConfidentExpiry(), nameHint = nameHint, ingredients = ingredients, packageText = longestText.take(2000)
     )
 }
 

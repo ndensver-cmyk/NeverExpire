@@ -49,4 +49,16 @@ class PackageTextParserTest {
         assertTrue(PackageTextParser.isValidEan("3017620422003"))
         assertEquals("7702177017975", PackageTextParser.findBarcode("Cod 7702177017975 Reg"))
     }
+    @Test fun ignoraFechaSinEtiquetaDeVencimiento() {
+        assertEquals(null, PackageTextParser.bestExpiry("LOTE 2345 07/11/2027", today))
+    }
+
+    @Test fun ignoraFechaDeFabricacion() {
+        assertEquals(null, PackageTextParser.bestExpiry("F.P. 01/10/2026", today))
+    }
+
+    @Test fun noInventaVencimientoDeSieteDias() {
+        assertEquals(null, PackageTextParser.bestExpiry("Panela 500 g. Lote 2345", today))
+    }
+
 }

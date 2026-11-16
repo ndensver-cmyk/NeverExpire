@@ -132,9 +132,15 @@ private fun Header(total: Int, counts: Map<ExpiryStatus, Int>, selected: ExpiryS
             .statusBarsPadding()
             .padding(20.dp)
     ) {
-        Text("NeverExpire", style = MaterialTheme.typography.headlineMedium, color = Color.White)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("NeverExpire", style = MaterialTheme.typography.headlineMedium, color = Color.White)
+            Surface(color = Color.White.copy(alpha = 0.18f), shape = RoundedCornerShape(50)) {
+                Text("3.1 SMART", modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            }
+        }
         Text(
-            if (total == 0) "Tu despensa está vacía" else "$total productos en tu despensa",
+            if (total == 0) "Tu despensa está vacía · búsqueda inteligente" else "$total productos · búsqueda inteligente",
             color = Color.White.copy(alpha = 0.85f)
         )
         Spacer(Modifier.height(16.dp))

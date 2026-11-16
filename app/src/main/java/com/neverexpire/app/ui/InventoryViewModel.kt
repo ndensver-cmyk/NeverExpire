@@ -10,6 +10,8 @@ import com.neverexpire.app.data.ProductRepository
 import com.neverexpire.app.data.SettingsRepository
 import com.neverexpire.app.net.OpenFoodFacts
 import com.neverexpire.app.net.ProductInfo
+import com.neverexpire.app.net.WebProductSearch
+import com.neverexpire.app.net.WebSearchResult
 import com.neverexpire.app.scan.ScanDraft
 import com.neverexpire.app.work.ExpiryScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,4 +61,5 @@ class InventoryViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun lookupBarcode(code: String): ProductInfo? = OpenFoodFacts.byBarcode(code)
     suspend fun searchByName(q: String): List<ProductInfo> = OpenFoodFacts.search(q)
+    suspend fun searchWeb(q: String): List<WebSearchResult> = WebProductSearch.search(q)
 }
