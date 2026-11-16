@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.neverexpire.app.data.CATEGORIES
 import com.neverexpire.app.data.Product
+import com.neverexpire.app.data.guessCategory
 import com.neverexpire.app.net.ProductInfo
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -37,7 +38,7 @@ private fun Product.withInfo(i: ProductInfo) = copy(
     brand = i.brand.ifBlank { brand },
     imageUrl = i.imageUrl.ifBlank { imageUrl },
     size = i.size.ifBlank { size },
-    category = if (i.category != "Otros") i.category else category,
+    category = if (i.category != "Otros") i.category else guessCategory(emptyList(), "${i.name} ${i.brand} ${i.ingredients}"),
     description = i.description.ifBlank { description },
     ingredients = i.ingredients.ifBlank { ingredients },
     allergens = i.allergens.ifBlank { allergens },
@@ -56,7 +57,7 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
     var p by remember {
         mutableStateOf(
             productId?.let { vm.find(it) } ?: Product(
-                id = 0, name = "", category = CATEGORIES.first(), quantity = 1,
+                id = 0, name = "", category = "Otros", quantity = 1,
                 expiryEpochDay = (draft?.expiry ?: LocalDate.now().plusDays(7)).toEpochDay(),
                 barcode = draft?.barcode.orEmpty(),
                 ingredients = draft?.ingredients.orEmpty(),
@@ -106,7 +107,7 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
                         p = p.withInfo(best)
                         message = "Encontramos el producto por el texto del empaque"
                     } else {
-                        p = p.copy(name = hint)
+                        p = p.copy(name = hint, category = guessCategory(emptyList(), hint))
                         results = alternatives
                         searchText = hint
                         message = if (alternatives.isEmpty()) "No encontramos una ficha automática. Puedes completar solo lo que falte." else "Elige el resultado que coincida con tu producto."
@@ -137,7 +138,7 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
             vm.scanDraft.value = null
             if (!draft.barcode.isNullOrBlank()) lookupCode(draft.barcode)
             else if (!draft.nameHint.isNullOrBlank()) {
-                p = p.copy(name = draft.nameHint)
+                p = p.copy(name = draft.nameHint, category = guessCategory(emptyList(), draft.nameHint))
                 searchName(draft.nameHint)
             }
         }
