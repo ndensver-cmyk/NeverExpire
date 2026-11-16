@@ -112,7 +112,12 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
                         p = p.copy(name = hint, category = guessCategory(emptyList(), hint))
                         results = alternatives
                         searchText = hint
-                        message = if (alternatives.isEmpty()) "No encontramos una ficha automática. Puedes completar solo lo que falte." else "Elige el resultado que coincida con tu producto."
+                        if (alternatives.isEmpty()) {
+                            val web = vm.searchWeb(hint)
+                            webResults = web
+                            message = if (web.isEmpty()) "No hay coincidencias. Configura BRAVE_SEARCH_API_KEY en GitHub para activar la búsqueda web."
+                                else "Encontramos fuentes en Internet. Revisa los resultados."
+                        } else message = "Elige el resultado que coincida con tu producto."
                     }
                 } else {
                     message = "No encontramos este código. Puedes buscar el producto por su nombre."
