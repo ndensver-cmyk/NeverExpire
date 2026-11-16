@@ -115,8 +115,8 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
                         if (alternatives.isEmpty()) {
                             val web = vm.searchWeb(hint)
                             webResults = web
-                            message = if (web.isEmpty()) "No hay coincidencias. Configura BRAVE_SEARCH_API_KEY en GitHub para activar la búsqueda web."
-                                else "Encontramos fuentes en Internet. Revisa los resultados."
+                            message = if (web.isEmpty()) "No pudimos preparar la búsqueda. Comprueba tu conexión e inténtalo de nuevo."
+                                else "No encontramos el producto en la base de datos. Puedes buscarlo gratis en Internet."
                         } else message = "Elige el resultado que coincida con tu producto."
                     }
                 } else {
@@ -334,13 +334,13 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
             LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
                 items(list) { item ->
                     Column(Modifier.fillMaxWidth().clickable {
-                        p = p.copy(name = item.title.take(120), description = item.description.take(1200))
+                        uriHandler.openUri(item.url)
                         webResults = null
-                        message = "Datos sugeridos desde Internet; verifica antes de guardar."
+                        message = "Revisa la búsqueda en Internet y confirma los datos antes de guardarlos."
                     }.padding(20.dp)) {
                         Text(item.title, style = MaterialTheme.typography.titleSmall)
                         Text(item.description, style = MaterialTheme.typography.bodySmall, maxLines = 3)
-                        Text("Abrir fuente", color = MaterialTheme.colorScheme.primary,
+                        Text("Abrir búsqueda", color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.clickable { uriHandler.openUri(item.url) })
                     }
                     HorizontalDivider()
