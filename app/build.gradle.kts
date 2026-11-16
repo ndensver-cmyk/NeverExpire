@@ -16,7 +16,6 @@ android {
         versionName = "3.1"
         // Solo procesadores de teléfonos reales (reduce tamaño)
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
-        buildConfigField("String", "BRAVE_SEARCH_API_KEY", "\"${System.getenv("BRAVE_SEARCH_API_KEY") ?: ""}\"")
     }
 
     signingConfigs {
