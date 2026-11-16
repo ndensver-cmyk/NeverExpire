@@ -71,12 +71,23 @@ private class ScanAccumulator {
             if (r.text.length > longestText.length) longestText = r.text
             wordsRead = maxOf(wordsRead, r.text.split(Regex("\\s+")).size)
         }
-        if (nameHint == null && r.biggestLine != null && r.biggestLine.length in 3..40) nameHint = r.biggestLine
+        if (nameHint == null) nameHint = usableNameHint(r.biggestLine)
     }
 
     fun bestDates(): List<LocalDate> = dateScores.entries.sortedByDescending { it.value }.map { it.key }.take(4)
 
-    fun hasConfidentExpiry(): Boolean = (bestDates().firstOrNull()?.let { dateBestScores[it] } ?: 0) >= 13
+    fun hasConfidentExpiry(): Boolean = false
+
+    private fun usableNameHint(line: String?): String? {
+        val value = line?.trim()?.replace(Regex("\\s+"), " ") ?: return null
+        if (value.length !in 4..32) return null
+        if (Regex("\\d{2,}").containsMatchIn(value)) return null
+        val letters = value.count { it.isLetter() }
+        if (letters < 4 || letters.toDouble() / value.length < 0.75) return null
+        val ignored = listOf("LOTE", "VENCE", "VENCIMIENTO", "INGREDIENTES", "REGISTRO", "CONTENIDO NETO", "FECHA")
+        if (ignored.any { value.uppercase().contains(it) }) return null
+        return value
+    }
 
     fun reset() {
         barcode = null; dateScores.clear(); dateBestScores.clear(); ingredients = ""; longestText = ""; nameHint = null; wordsRead = 0
