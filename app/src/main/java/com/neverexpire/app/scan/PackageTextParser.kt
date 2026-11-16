@@ -44,7 +44,7 @@ object PackageTextParser {
             val before = upper.substring((start - 45).coerceAtLeast(0), start)
             val after = upper.substring(end, (end + 24).coerceAtMost(upper.length))
             val hasExpiryLabel = KEYWORDS.any { it in before || it in after }
-            val hasProductionLabel = PRODUCTION.any { it in before.takeLast(28) }
+            val hasProductionLabel = PRODUCTION.any { it in before.takeLast(12) }
             // No aceptar números sueltos, fechas de fabricación ni números de lote
             // como vencimiento. Si no hay una etiqueta clara, se pide confirmación manual.
             if (!hasExpiryLabel || hasProductionLabel) return
