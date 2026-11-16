@@ -1,14 +1,8 @@
 package com.neverexpire.app.net
 
-import com.neverexpire.app.BuildConfig
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 import java.net.URLEncoder
 
-/** Resultado público de una búsqueda web; siempre conserva el enlace de origen. */
+/** Enlace de búsqueda web gratuita. No requiere clave ni servicio de pago. */
 data class WebSearchResult(
     val title: String,
     val url: String,
@@ -16,40 +10,21 @@ data class WebSearchResult(
 )
 
 /**
- * Búsqueda web de respaldo. La clave se inyecta desde GitHub Actions Secrets;
- * nunca se escribe en el repositorio ni se incluye como literal en el código.
+ * Respaldo gratuito: prepara una búsqueda pública en Google.
+ * La aplicación no extrae ni inventa datos de los resultados; el usuario
+ * revisa las fuentes y confirma los datos del producto y su vencimiento.
  */
 object WebProductSearch {
-    suspend fun search(query: String): List<WebSearchResult> = withContext(Dispatchers.IO) {
-        val key = BuildConfig.BRAVE_SEARCH_API_KEY
-        if (key.isBlank() || query.isBlank()) return@withContext emptyList()
-        val encoded = URLEncoder.encode(query.trim(), "UTF-8")
-        val connection = try {
-            URL("https://api.search.brave.com/res/v1/web/search?q=$encoded&country=CO&search_lang=es&count=8")
-                .openConnection() as HttpURLConnection
-        } catch (_: Exception) { return@withContext emptyList() }
-        try {
-            connection.requestMethod = "GET"
-            connection.setRequestProperty("Accept", "application/json")
-            connection.setRequestProperty("X-Subscription-Token", key)
-            connection.connectTimeout = 10_000
-            connection.readTimeout = 15_000
-            if (connection.responseCode !in 200..299) return@withContext emptyList()
-            val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
-            val results = json.optJSONObject("web")?.optJSONArray("results")
-                ?: return@withContext emptyList()
-            (0 until results.length()).mapNotNull { index ->
-                val item = results.optJSONObject(index) ?: return@mapNotNull null
-                val title = item.optString("title").trim()
-                val url = item.optString("url").trim()
-                val description = item.optString("description").trim()
-                if (title.isBlank() || !url.startsWith("https://")) null
-                else WebSearchResult(title, url, description)
-            }
-        } catch (_: Exception) {
-            emptyList()
-        } finally {
-            connection.disconnect()
-        }
+    fun search(query: String): List<WebSearchResult> {
+        val cleanQuery = query.trim()
+        if (cleanQuery.isBlank()) return emptyList()
+        val encoded = URLEncoder.encode(cleanQuery, "UTF-8")
+        return listOf(
+            WebSearchResult(
+                title = "Buscar \"$cleanQuery\" en Google",
+                url = "https://www.google.com/search?q=$encoded",
+                description = "Abre resultados públicos de Internet. Comprueba que la marca y la presentación coincidan con tu producto."
+            )
+        )
     }
 }
