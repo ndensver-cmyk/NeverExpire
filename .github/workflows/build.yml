@@ -2,7 +2,7 @@ name: Build NeverExpire APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, 'feature/neverexpire-3.1-smart-web' ]
     tags: [ 'v*' ]
   pull_request:
   workflow_dispatch:
