@@ -43,8 +43,12 @@ object PackageTextParser {
             // también puede devolver la etiqueta después o en la línea siguiente.
             val before = upper.substring((start - 45).coerceAtLeast(0), start)
             val after = upper.substring(end, (end + 24).coerceAtMost(upper.length))
-            if (KEYWORDS.any { it in before || it in after }) score += 12
-            if (PRODUCTION.any { it in before.takeLast(18) }) score -= 8
+            val hasExpiryLabel = KEYWORDS.any { it in before || it in after }
+            val hasProductionLabel = PRODUCTION.any { it in before.takeLast(28) }
+            // No aceptar números sueltos, fechas de fabricación ni números de lote
+            // como vencimiento. Si no hay una etiqueta clara, se pide confirmación manual.
+            if (!hasExpiryLabel || hasProductionLabel) return
+            score += 12
             if (!date.isBefore(today)) score += 2
             found[date] = maxOf(found[date] ?: Int.MIN_VALUE, score)
         }
