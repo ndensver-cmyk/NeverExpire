@@ -57,22 +57,22 @@ val CATEGORIES = listOf(
     "Enlatados", "Bebidas", "Congelados", "Granos", "Snacks", "Salsas", "Otros"
 )
 
-/** Traduce las categorías de Open Food Facts a las de la app. */
+/** Clasifica usando nombres y etiquetas de Open Food Facts, incluso si vienen en inglés. */
 fun guessCategory(tags: List<String>, name: String = ""): String {
     val t = (tags.joinToString(" ") + " " + name).lowercase()
+        .replace("_", "-")
     return when {
-        listOf("dair", "milk", "cheese", "yogurt", "leche", "queso", "yogur", "kumis", "crema").any { it in t } -> "Lácteos"
-        listOf("meat", "chicken", "sausage", "carne", "pollo", "salchich", "jamon", "fish", "atun", "tuna").any { it in t } &&
-            !("canned" in t) -> "Carnes"
-        listOf("canned", "enlatad", "conserva").any { it in t } -> "Enlatados"
-        listOf("frozen", "congelad", "ice-cream", "helado").any { it in t } -> "Congelados"
-        listOf("beverage", "drink", "juice", "water", "soda", "bebida", "jugo", "gaseosa", "cafe", "coffee", "tea").any { it in t } -> "Bebidas"
-        listOf("bread", "pan ", "bakery", "biscuit", "galleta", "tostada").any { it in t } -> "Panadería"
-        listOf("fruit", "fruta").any { it in t } -> "Frutas"
-        listOf("vegetable", "verdura", "legume").any { it in t } -> "Verduras"
-        listOf("cereal", "rice", "arroz", "pasta", "grain", "lenteja", "frijol", "avena").any { it in t } -> "Granos"
-        listOf("snack", "chip", "chocolate", "candy", "confection", "spread", "dulce").any { it in t } -> "Snacks"
-        listOf("sauce", "salsa", "condiment", "mayonnaise", "ketchup").any { it in t } -> "Salsas"
+        listOf("dair", "milk", "cheese", "yogurt", "yoghurt", "leche", "queso", "yogur", "kumis", "cream", "crema", "butter", "mantequilla").any { it in t } -> "Lácteos"
+        listOf("meat", "chicken", "poultry", "sausage", "carne", "pollo", "salchich", "jamon", "ham", "fish", "atun", "tuna", "pescado", "beef", "pork").any { it in t } && !listOf("canned", "enlatad", "conserva").any { it in t } -> "Carnes"
+        listOf("canned", "enlatad", "conserva", "preserved").any { it in t } -> "Enlatados"
+        listOf("frozen", "congelad", "ice-cream", "ice cream", "helado").any { it in t } -> "Congelados"
+        listOf("beverage", "drink", "juice", "water", "soda", "bebida", "jugo", "gaseosa", "cafe", "coffee", "tea", "refresco", "nectar").any { it in t } -> "Bebidas"
+        listOf("bread", "bakery", "biscuit", "panadería", "panaderia", "galleta", "tostada", "cracker", "pastry", "tortilla").any { it in t } -> "Panadería"
+        listOf("fruit", "fruta", "fruits").any { it in t } -> "Frutas"
+        listOf("vegetable", "verdura", "legume", "hortaliza", "vegetales").any { it in t } -> "Verduras"
+        listOf("cereal", "rice", "arroz", "pasta", "grain", "lenteja", "frijol", "avena", "beans", "legumbres").any { it in t } -> "Granos"
+        listOf("snack", "chip", "chocolate", "candy", "confection", "spread", "dulce", "confiteria", "confitería", "pasaboca").any { it in t } -> "Snacks"
+        listOf("sauce", "salsa", "condiment", "mayonnaise", "ketchup", "aderezo").any { it in t } -> "Salsas"
         else -> "Otros"
     }
 }
