@@ -124,7 +124,11 @@ fun EditScreen(vm: InventoryViewModel, productId: Long?, fromScan: Boolean, onBa
             loading = true; message = null
             val r = vm.searchByName(q)
             loading = false
-            if (r.isEmpty()) message = "Sin resultados para \"$q\"" else results = r
+            val best = r.maxByOrNull { matchScore(q, it.name) }
+            if (best != null && matchScore(q, best.name) >= 0.65) {
+                p = p.withInfo(best)
+                message = "Información del producto cargada automáticamente"
+            } else if (r.isEmpty()) message = "Sin resultados para \"$q\"" else results = r
         }
     }
 
