@@ -12,13 +12,33 @@ android {
         applicationId = "com.neverexpire.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "2.0"
+        // Solo procesadores de teléfonos reales (reduce tamaño)
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+    }
+
+    signingConfigs {
+        create("release") {
+            val ks = System.getenv("KEYSTORE_FILE")
+            if (ks != null && file(ks).exists()) {
+                storeFile = file(ks)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEYSTORE_PASSWORD")
+            } else {
+                // Sin secretos (por ejemplo en un PR): usa la llave de prueba
+                initWith(getByName("debug"))
+            }
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -39,7 +59,7 @@ dependencies {
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-core")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui-tooling-preview")
 
     implementation("androidx.core:core-ktx:1.13.1")
@@ -48,4 +68,18 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.6")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+    implementation("androidx.navigation:navigation-compose:2.8.0")
+
+    // Cámara + lectura de código de barras y texto (en el teléfono, sin internet)
+    val camerax = "1.3.4"
+    implementation("androidx.camera:camera-camera2:$camerax")
+    implementation("androidx.camera:camera-lifecycle:$camerax")
+    implementation("androidx.camera:camera-view:$camerax")
+    implementation("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1")
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
+
+    // Imágenes de productos
+    implementation("io.coil-kt:coil-compose:2.7.0")
+
+    testImplementation("junit:junit:4.13.2")
 }
